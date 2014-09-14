@@ -1,0 +1,113 @@
+Activity Monitoring Data Analysis
+========================================================
+The markdown document provides details on how the results of the questions for the assignment are arrived at.
+
+1. Loading and preprocessing the data
+
+At the outset data is downloaded on to a local drive, unzipped and read into the memory for processing and plotting
+using read.csv() funtion of R. The loaded data is converted from character vector to numeric vector data set for plotting and analysis. Once the data is loaded, use head() function to fetch top 5 rows of the data to get a flavor of the fields
+```{r}
+library(lattice)
+activity <- read.csv("activity.csv", colClasses = c("numeric", "character", 
+                                                    "numeric"))
+head(activity)
+```
+
+2. What is mean total number of steps taken per day?
+
+First, aggregate() function is used to group number of steps each day by 'date' field from activiy data. Histogram is drawn between Total Steps by Day vs. 'number of steps' (frequency). I chose green for coloring the Histogram.
+Finally, I use mean() and median() functions on Total Number of Steps to get basic summaries.
+
+```{r}
+TotSteps <- aggregate(steps ~ date, data = activity, sum, na.rm = TRUE)
+
+hist(TotSteps$steps, main = "Total steps by day", xlab = "day", col = "green")
+
+mean(TotSteps$steps)
+median(TotSteps$steps)
+```
+
+3. What is the average daily activity pattern?
+
+I used tapply() function so that  we can break the activity data set into groups of 5-min interval and apply mean function on it. tapply() function helps to solve both grouping and applying a funciton on groups on dataset.
+
+Once the data is broken up into 5-min dataset, we plot a graph between 'Average number of Steps' in 5-min interval vs. Average # of steps across all days.
+```{r}
+timeseries_on_steps <- tapply(activity$steps, activity$interval, mean, na.rm = TRUE)
+plot(row.names(timeseries_on_steps), timeseries_on_steps, type = "l", xlab = "5-min interval", 
+     ylab = "Average across all Days", main = "Average number of steps taken", 
+     col = "red")
+```
+
+4. Imputing Missing Values
+
+Every real data set is bound to have missing values. For this question, we are trying to fill in missing values with 'mean' over 5-min interval which is quite reasonable.  
+
+First, we calculate and output total number of missing values in the dataset using sum() function on activity data set
+
+Secondly, we have come up with a strategy for filling in all of the missing values in the dataset. The simplest strategy (as recommended by the instructor) is to use mean over 5-min interval which works out well
+
+Thirdly, we create a new dataset which is old data set with missing values + new dataset with filled in values
+
+Finally, we plot the histogram on new dataset
+
+Outcome : Mean value of two datsets (with NAs and without NAs) remains unchanged. However, median seems to have shifted closer to mean as we fill in the missing values
+
+
+```{r}
+activity_NA <- sum(is.na(activity))
+activity_NA
+
+StepsAverage <- aggregate(steps ~ interval, data = activity, FUN = mean)
+
+fillNA <- numeric()
+for (i in 1:nrow(activity)) {
+  obs <- activity[i, ]
+  if (is.na(obs$steps)) {
+    steps <- subset(StepsAverage, interval == obs$interval)$steps
+  } else {
+    steps <- obs$steps
+  }
+  fillNA <- c(fillNA, steps)
+}
+
+new_activity <- activity
+new_activity$steps <- fillNA
+
+StepsTotal2 <- aggregate(steps ~ date, data = new_activity, sum, na.rm = TRUE)
+
+mean(StepsTotal2$steps)
+median(StepsTotal2$steps)
+
+hist(StepsTotal2$steps, main = "Total steps by day", xlab = "day", col = "red")
+```
+
+5. Are there differences in activity patterns between weekdays and weekends?
+
+As suggested, we use the weekdays() function. We create factor variables with two levels - weekday and weekend. We create two data sets and analyze them at two levels. We then create a xyplot to show a graph of multivariables - number of steps over weekend and number of steps over weekdays.
+
+Outcome: activity of individual on the weekends tends to be more spread out throughout the day compared to the weekdays. We assume that activities on weekdays are busy for people with work and family related activities, whereas weekends are relaxed and take their own time to do other activities.
+
+```{r}
+day <- weekdays(as.Date(activity$date))
+daylevel <- vector()
+for (i in 1:nrow(activity)) {
+  if (day[i] == "Saturday") {
+    daylevel[i] <- "Weekend"
+  } else if (day[i] == "Sunday") {
+    daylevel[i] <- "Weekend"
+  } else {
+    daylevel[i] <- "Weekday"
+  }
+}
+activity$daylevel <- daylevel
+activity$daylevel <- factor(activity$daylevel)
+
+stepsByDay <- aggregate(steps ~ interval + daylevel, data = activity, mean)
+names(stepsByDay) <- c("interval", "daylevel", "steps")
+
+xyplot(steps ~ interval | daylevel, stepsByDay, type = "l", layout = c(1, 2), 
+    xlab = "Interval", ylab = "Number of steps")
+
+```
+
